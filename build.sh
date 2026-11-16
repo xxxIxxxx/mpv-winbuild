@@ -76,6 +76,18 @@ build() {
     fi
     ninja -C $buildroot/build$bit update
     ninja -C $buildroot/build$bit mpv-fullclean
+
+    for vf in "$srcdir/ffmpeg/libavfilter/vf_drawtext.c" "$buildroot/src_packages/ffmpeg/libavfilter/vf_drawtext.c"; do
+        if [ -f "$vf" ]; then
+            python3 -c "
+f = '$vf'
+content = open(f).read()
+if 'AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE' in content and '#define AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE' not in content:
+    open(f, 'w').write('#include \"libavutil/avassert.h\"\n#define AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE 64\n#define AV_NUM_DETECTION_BBOX_CLASSIFY 4\n' + content)
+    print('[bvc2-fix] Successfully patched missing macros in vf_drawtext.c')
+"
+        fi
+    done
     
     ninja -C $buildroot/build$bit mpv
 
