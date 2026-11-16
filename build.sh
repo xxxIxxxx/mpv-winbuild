@@ -88,6 +88,24 @@ if 'AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE' in content and '#define AV_DETECTION_
 "
         fi
     done
+
+    for vf in "$srcdir/ffmpeg/libavfilter/vf_v360_vulkan.c" "$buildroot/src_packages/ffmpeg/libavfilter/vf_v360_vulkan.c"; do
+        if [ -f "$vf" ]; then
+            python3 -c "
+f = '$vf'
+content = open(f).read()
+old_sig = '''static int process_command(AVFilterContext *ctx, const char *cmd, const char *args,
+                           char *res, int res_len, int flags)'''
+new_sig = '''static int process_command(AVFilterContext *ctx, const char *cmd, const char *args)'''
+old_call = 'RET(ff_filter_process_command(ctx, cmd, args, res, res_len, flags));'
+new_call = 'RET(ff_filter_process_command(ctx, cmd, args));'
+if old_sig in content:
+    content = content.replace(old_sig, new_sig).replace(old_call, new_call)
+    open(f, 'w').write(content)
+    print('[bvc2-fix] Successfully patched process_command signature in vf_v360_vulkan.c')
+"
+        fi
+    done
     
     ninja -C $buildroot/build$bit mpv
 
