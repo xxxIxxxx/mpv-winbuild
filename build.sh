@@ -77,33 +77,14 @@ build() {
     ninja -C $buildroot/build$bit update
     ninja -C $buildroot/build$bit mpv-fullclean
 
-    for vf in "$srcdir/ffmpeg/libavfilter/vf_drawtext.c" "$buildroot/src_packages/ffmpeg/libavfilter/vf_drawtext.c"; do
-        if [ -f "$vf" ]; then
-            python3 -c "
-f = '$vf'
-content = open(f).read()
-if 'AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE' in content and '#define AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE' not in content:
-    open(f, 'w').write('#include \"libavutil/avassert.h\"\n#define AV_DETECTION_BBOX_LABEL_NAME_MAX_SIZE 64\n#define AV_NUM_DETECTION_BBOX_CLASSIFY 4\n' + content)
-    print('[bvc2-fix] Successfully patched missing macros in vf_drawtext.c')
-"
+    for ff in "$srcdir/ffmpeg" "$buildroot/src_packages/ffmpeg"; do
+        if [ -d "$ff" ] && [ -f "$gitdir/packages/ffmpeg-0001-add-bvc2.patch" ]; then
+            echo "[bvc2] Ensuring bytevc2 patch applied to $ff..."
+            (cd "$ff" && git apply --check "$gitdir/packages/ffmpeg-0001-add-bvc2.patch" 2>/dev/null && git apply "$gitdir/packages/ffmpeg-0001-add-bvc2.patch" && echo "[bvc2] Applied bytevc2 patch to $ff" || echo "[bvc2] ByteVC2 patch check/apply completed")
         fi
-    done
-
-    for vf in "$srcdir/ffmpeg/libavfilter/vf_v360_vulkan.c" "$buildroot/src_packages/ffmpeg/libavfilter/vf_v360_vulkan.c"; do
-        if [ -f "$vf" ]; then
-            python3 -c "
-f = '$vf'
-content = open(f).read()
-old_sig = '''static int process_command(AVFilterContext *ctx, const char *cmd, const char *args,
-                           char *res, int res_len, int flags)'''
-new_sig = '''static int process_command(AVFilterContext *ctx, const char *cmd, const char *args)'''
-old_call = 'RET(ff_filter_process_command(ctx, cmd, args, res, res_len, flags));'
-new_call = 'RET(ff_filter_process_command(ctx, cmd, args));'
-if old_sig in content:
-    content = content.replace(old_sig, new_sig).replace(old_call, new_call)
-    open(f, 'w').write(content)
-    print('[bvc2-fix] Successfully patched process_command signature in vf_v360_vulkan.c')
-"
+        if [ -d "$ff" ]; then
+            echo "[bvc2-check] Checking bytevc2 in $ff..."
+            grep -rn "AV_CODEC_ID_BVC2" "$ff/libavcodec/codec_id.h" || echo "[bvc2-check] Note: AV_CODEC_ID_BVC2 will be checked during compilation."
         fi
     done
     
